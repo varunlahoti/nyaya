@@ -1,0 +1,13 @@
+# Keep the HF Docker image lean — the Streamlit app only needs backend/ + reqs.
+frontend
+docs
+infra
+.git
+.github
+**/__pycache__
+**/*.pyc
+**/.venv
+**/node_modules
+**/.next
+backend/Dockerfile
+docker-compose.yml

@@ -3,8 +3,8 @@ title: Nyaya Legal Research
 emoji: ⚖️
 colorFrom: indigo
 colorTo: orange
-sdk: streamlit
-app_file: backend/streamlit_app.py
+sdk: docker
+app_port: 7860
 pinned: false
 short_description: AI legal research for Indian advocates — facts in, judgments out
 ---
