@@ -1,0 +1,12 @@
+# Force a light theme so text is always dark on the cream background
+# (otherwise Streamlit follows the viewer's dark mode and labels go white).
+[theme]
+base = "light"
+primaryColor = "#233043"
+backgroundColor = "#f7f4ee"
+secondaryBackgroundColor = "#efe9dd"
+textColor = "#1a1f2e"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

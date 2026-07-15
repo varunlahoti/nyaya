@@ -137,6 +137,11 @@ st.markdown(
           #f7f4ee;
       }
       #MainMenu, footer, [data-testid="stToolbar"] {visibility: hidden;}
+      /* force dark, readable text on widget labels + alerts (beat dark mode) */
+      [data-testid="stWidgetLabel"] p, label, .stTextArea label, .stSelectbox label,
+      .stCheckbox label, .stCheckbox label p {color:#1a1f2e !important;}
+      [data-testid="stAlert"] p, [data-testid="stNotification"] p {color:#1a1f2e !important;}
+      .stCheckbox p {color:#1a1f2e !important;}
       .block-container {padding-top: 2.2rem; max-width: 820px;}
       h1, h2, h3 {font-family: Georgia, 'Times New Roman', serif;}
       /* header */
@@ -180,6 +185,16 @@ st.markdown(
     'each with a source link and why it&rsquo;s relevant.</div></div>',
     unsafe_allow_html=True,
 )
+
+# --- Config status (helps confirm keys landed) ---------------------------- #
+if not settings.has_indian_kanoon:
+    st.warning(
+        "Indian Kanoon not detected — add **INDIAN_KANOON_API_TOKEN** to the app's "
+        "Secrets (exact name, no quotes issues) and reboot. Searches return nothing until then.",
+        icon="⚠️",
+    )
+elif not settings.has_llm:
+    st.info("LLM not detected — add OPENROUTER_API_KEY to Secrets for real ranking.")
 
 # --- Search form ---------------------------------------------------------- #
 if "facts_input" not in st.session_state:
