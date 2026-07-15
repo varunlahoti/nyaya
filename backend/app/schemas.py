@@ -121,6 +121,7 @@ class Candidate:
     raw_score: float = 0.0          # source-native score
     prelim_score: float = 0.0       # normalised + blended
     holding: str = ""               # filled if we have the doc cached
+    cites: int = 0                  # times this judgment is cited (authority signal)
 
     @property
     def dedupe_key(self) -> str:

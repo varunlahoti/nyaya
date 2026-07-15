@@ -75,7 +75,7 @@ async def _openrouter(
             {"role": "user", "content": user},
         ],
         "max_tokens": max_tokens,
-        "temperature": 0.2,
+        "temperature": 0,  # deterministic — same prompt gives the same result
         "response_format": {"type": "json_object"},
     }
     headers = {

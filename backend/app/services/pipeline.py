@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 import uuid
 from typing import Dict, List
@@ -153,9 +154,11 @@ class SearchPipeline:
             w = SOURCE_WEIGHTS.get(source, 1.0)
             for c in group:
                 norm = (c.raw_score - lo) / span
-                # Blend source trust with court authority (binding > persuasive).
+                # Blend source trust with court authority (binding > persuasive)
+                # and a gentle citation-count boost (well-cited = more authoritative).
                 cw = COURT_WEIGHTS.get(c.court_level, COURT_WEIGHTS[None])
-                c.prelim_score = norm * w * cw
+                cite_boost = 1 + min(0.20, 0.05 * math.log10(1 + c.cites)) if c.cites else 1.0
+                c.prelim_score = norm * w * cw * cite_boost
 
         # Dedupe: keep the highest prelim_score per dedupe key; if a judgment
         # appears from multiple queries/sources, boost it slightly (corroboration).

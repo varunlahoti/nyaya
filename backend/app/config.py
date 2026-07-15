@@ -47,10 +47,12 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     ENABLED_RETRIEVERS: List[str] = ["indian_kanoon", "vector"]
-    CANDIDATE_CAP: int = 25           # how many candidates go to the reranker
+    CANDIDATE_CAP: int = 25           # how many candidates go to the reranker (cost lever)
     # IK boolean/phrase queries can take 10-15s; keep this generous.
     RETRIEVER_TIMEOUT_SECONDS: float = 20.0
-    PER_RETRIEVER_LIMIT: int = 15     # results requested per source per query
+    # Fetch more per query (same # of IK calls = same credits) so landmark cases
+    # are more likely to enter the candidate pool.
+    PER_RETRIEVER_LIMIT: int = 25     # results requested per source per query
     # Cap queries per search. Each query ≈ 1 Indian Kanoon credit, so this is the
     # direct lever on credit burn. 3 = conserve (free-tier dev); 6 = full breadth.
     MAX_QUERIES_PER_SEARCH: int = 6
@@ -78,7 +80,9 @@ class Settings(BaseSettings):
     # "memory"   -> load a seed corpus into RAM at startup (zero DB, great for
     #               offline dev/demo — 0 Indian Kanoon credits per search)
     # "postgres" -> pgvector-backed corpus (production; needs DATABASE_URL)
-    VECTOR_BACKEND: str = "none"
+    # Default "memory": blends the landmark seed corpus into every search (0 cost,
+    # local) so famous binding cases are always in the candidate pool.
+    VECTOR_BACKEND: str = "memory"
     SEED_CORPUS_PATH: str = "data/seed_judgments.json"
 
     # --- Persistence / cache (optional) ---

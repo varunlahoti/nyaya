@@ -111,6 +111,8 @@ class IndianKanoonRetriever:
                 snippet=_clean(d.get("headline", "")),
                 # Rank-based fallback score; blended later.
                 raw_score=float(len(docs) - i) / max(len(docs), 1),
+                # Authority signal (if IK returns it) → boosts well-cited landmarks.
+                cites=int(d.get("numcitedby") or d.get("numcites") or 0),
             ))
 
         await cache.set_json(
