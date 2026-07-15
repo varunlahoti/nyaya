@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  search,
-  getPassword,
-  setPassword,
-  clearPassword,
-  UnauthorizedError,
-} from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { search, UnauthorizedError } from "@/lib/api";
+import { isAuthed, logout } from "@/lib/auth";
 import type { SearchResponse } from "@/lib/types";
 import { ResultCard } from "@/components/ResultCard";
 import { ParsedPanel } from "@/components/ParsedPanel";
@@ -17,6 +13,7 @@ const SAMPLE =
   "The tenant stopped paying rent for 8 months. The landlord issued a notice under the Transfer of Property Act and now seeks eviction. The tenant claims the notice was defective and that he is a statutory tenant.";
 
 export default function Home() {
+  const router = useRouter();
   const [facts, setFacts] = useState("");
   const [courtLevel, setCourtLevel] = useState("any");
   const [maxResults, setMaxResults] = useState(8);
@@ -24,22 +21,17 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resp, setResp] = useState<SearchResponse | null>(null);
+  const [ready, setReady] = useState(false);
 
-  // Password gate (public deploy). If no password stored yet, show the gate.
-  const [authed, setAuthed] = useState(true);
-  const [pwInput, setPwInput] = useState("");
-  const [pwError, setPwError] = useState<string | null>(null);
-
+  // Require a logged-in session; otherwise send to /login.
   useEffect(() => {
-    setAuthed(!!getPassword());
-  }, []);
+    if (!isAuthed()) router.replace("/login");
+    else setReady(true);
+  }, [router]);
 
-  function submitPassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (!pwInput.trim()) return;
-    setPassword(pwInput.trim());
-    setPwError(null);
-    setAuthed(true);
+  async function onLogout() {
+    await logout();
+    router.replace("/login");
   }
 
   async function onSearch() {
@@ -61,9 +53,7 @@ export default function Home() {
       setResp(data);
     } catch (e: any) {
       if (e instanceof UnauthorizedError) {
-        clearPassword();
-        setAuthed(false);
-        setPwError("Wrong password — try again.");
+        router.replace("/login");
       } else {
         setError(e.message || "Something went wrong.");
       }
@@ -72,38 +62,15 @@ export default function Home() {
     }
   }
 
-  if (!authed) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-        <div className="text-center">
-          <div className="font-serif text-4xl font-bold text-ink">
-            Nyaya <span className="text-brass">न्याय</span>
-          </div>
-          <p className="mt-2 text-court/70">Enter the access password to continue.</p>
-        </div>
-        <form onSubmit={submitPassword} className="mt-6 rounded-2xl border border-black/10 bg-white/80 p-5 shadow-sm">
-          <input
-            type="password"
-            value={pwInput}
-            onChange={(e) => setPwInput(e.target.value)}
-            placeholder="Password"
-            autoFocus
-            className="w-full rounded-lg border border-black/15 bg-parchment/60 p-3 text-ink outline-none focus:border-brass focus:ring-2 focus:ring-brass/20"
-          />
-          {pwError && <p className="mt-2 text-sm text-red-700">{pwError}</p>}
-          <button
-            type="submit"
-            className="mt-3 w-full rounded-lg bg-court px-4 py-3 font-medium text-parchment transition hover:bg-ink"
-          >
-            Enter
-          </button>
-        </form>
-      </main>
-    );
-  }
+  if (!ready) return null;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-24 pt-10">
+    <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
+      <div className="flex justify-end">
+        <button onClick={onLogout} className="text-xs text-court/60 hover:text-brass">
+          Sign out
+        </button>
+      </div>
       <header className="text-center">
         <div className="font-serif text-4xl font-bold tracking-tight text-ink">
           Nyaya <span className="text-brass">न्याय</span>

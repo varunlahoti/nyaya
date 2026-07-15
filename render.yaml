@@ -1,7 +1,12 @@
-# Render Blueprint for the Nyaya FastAPI backend.
-# Deploy: render.com → New → Blueprint → pick this repo. Then set the three
-# `sync: false` secrets (OPENROUTER_API_KEY, INDIAN_KANOON_API_TOKEN, APP_PASSWORD)
-# in the Render dashboard.
+# Render Blueprint — Nyaya production backend (multi-user).
+# Deploy: render.com → New → Blueprint → this repo. It provisions a free
+# Postgres + the API. Then set the sync:false secrets (keys + REDIS_URL) in the
+# dashboard. Frontend deploys separately on Vercel (root dir = frontend/), with
+# API_BASE_URL pointing at this service's URL.
+databases:
+  - name: nyaya-db
+    plan: free
+
 services:
   - type: web
     name: nyaya-api
@@ -13,12 +18,22 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nyaya-db
+          property: connectionString
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: DB_AUTO_CREATE
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true          # strong random secret, managed by Render
       - key: OPENROUTER_API_KEY
-        sync: false
+        sync: false                  # set in dashboard (rotated)
       - key: INDIAN_KANOON_API_TOKEN
         sync: false
-      - key: APP_PASSWORD
-        sync: false
+      - key: REDIS_URL
+        sync: false                  # Upstash Redis URL (persistent cache)
       - key: LLM_PROVIDER
         value: openrouter
       - key: LLM_MODEL
@@ -26,12 +41,10 @@ services:
       - key: LLM_PARSER_MODEL
         value: google/gemini-2.5-flash
       - key: ENABLED_RETRIEVERS
-        value: '["indian_kanoon"]'
+        value: '["indian_kanoon","vector"]'
       - key: VECTOR_BACKEND
-        value: none
+        value: memory
       - key: MAX_QUERIES_PER_SEARCH
         value: "3"
-      - key: MAX_SEARCHES_PER_DAY
-        value: "40"
       - key: CORS_ORIGINS
         value: '["*"]'
