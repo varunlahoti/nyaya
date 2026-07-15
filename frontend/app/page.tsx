@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { search } from "@/lib/api";
+import { useEffect, useState } from "react";
+import {
+  search,
+  getPassword,
+  setPassword,
+  clearPassword,
+  UnauthorizedError,
+} from "@/lib/api";
 import type { SearchResponse } from "@/lib/types";
 import { ResultCard } from "@/components/ResultCard";
 import { ParsedPanel } from "@/components/ParsedPanel";
@@ -18,6 +24,23 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resp, setResp] = useState<SearchResponse | null>(null);
+
+  // Password gate (public deploy). If no password stored yet, show the gate.
+  const [authed, setAuthed] = useState(true);
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAuthed(!!getPassword());
+  }, []);
+
+  function submitPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pwInput.trim()) return;
+    setPassword(pwInput.trim());
+    setPwError(null);
+    setAuthed(true);
+  }
 
   async function onSearch() {
     if (facts.trim().length < 20) {
@@ -37,10 +60,46 @@ export default function Home() {
       });
       setResp(data);
     } catch (e: any) {
-      setError(e.message || "Something went wrong.");
+      if (e instanceof UnauthorizedError) {
+        clearPassword();
+        setAuthed(false);
+        setPwError("Wrong password — try again.");
+      } else {
+        setError(e.message || "Something went wrong.");
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!authed) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+        <div className="text-center">
+          <div className="font-serif text-4xl font-bold text-ink">
+            Nyaya <span className="text-brass">न्याय</span>
+          </div>
+          <p className="mt-2 text-court/70">Enter the access password to continue.</p>
+        </div>
+        <form onSubmit={submitPassword} className="mt-6 rounded-2xl border border-black/10 bg-white/80 p-5 shadow-sm">
+          <input
+            type="password"
+            value={pwInput}
+            onChange={(e) => setPwInput(e.target.value)}
+            placeholder="Password"
+            autoFocus
+            className="w-full rounded-lg border border-black/15 bg-parchment/60 p-3 text-ink outline-none focus:border-brass focus:ring-2 focus:ring-brass/20"
+          />
+          {pwError && <p className="mt-2 text-sm text-red-700">{pwError}</p>}
+          <button
+            type="submit"
+            className="mt-3 w-full rounded-lg bg-court px-4 py-3 font-medium text-parchment transition hover:bg-ink"
+          >
+            Enter
+          </button>
+        </form>
+      </main>
+    );
   }
 
   return (

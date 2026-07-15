@@ -1,0 +1,37 @@
+# Render Blueprint for the Nyaya FastAPI backend.
+# Deploy: render.com → New → Blueprint → pick this repo. Then set the three
+# `sync: false` secrets (OPENROUTER_API_KEY, INDIAN_KANOON_API_TOKEN, APP_PASSWORD)
+# in the Render dashboard.
+services:
+  - type: web
+    name: nyaya-api
+    runtime: docker
+    repo: https://github.com/varunlahoti/nyaya
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: INDIAN_KANOON_API_TOKEN
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: LLM_PROVIDER
+        value: openrouter
+      - key: LLM_MODEL
+        value: deepseek/deepseek-chat
+      - key: LLM_PARSER_MODEL
+        value: google/gemini-2.5-flash
+      - key: ENABLED_RETRIEVERS
+        value: '["indian_kanoon"]'
+      - key: VECTOR_BACKEND
+        value: none
+      - key: MAX_QUERIES_PER_SEARCH
+        value: "3"
+      - key: MAX_SEARCHES_PER_DAY
+        value: "40"
+      - key: CORS_ORIGINS
+        value: '["*"]'

@@ -52,11 +52,38 @@ async def get_current_user(
     )
 
 
+async def verify_app_password(
+    x_app_password: Optional[str] = Header(default=None),
+) -> None:
+    """Shared-password gate for the public deploy. Open when APP_PASSWORD unset."""
+    if not settings.APP_PASSWORD:
+        return
+    if x_app_password != settings.APP_PASSWORD:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Invalid or missing app password."
+        )
+
+
 async def enforce_quota(
     user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    """Check and increment the per-day search counter (Redis-backed if present)."""
+    """Enforce a per-day search cap (Redis-backed if present, else in-process).
+
+    Uses a global counter when MAX_SEARCHES_PER_DAY is set (public deploy), else
+    the per-user plan quota.
+    """
     from .core import ratelimit
+
+    if settings.MAX_SEARCHES_PER_DAY > 0:
+        used = await ratelimit.incr_daily("global")
+        if used > settings.MAX_SEARCHES_PER_DAY:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Daily search limit reached ({settings.MAX_SEARCHES_PER_DAY}/day). "
+                       "This protects the API credits — try again tomorrow.",
+                headers={"Retry-After": "3600"},
+            )
+        return user
 
     used = await ratelimit.incr_daily(user.id)
     if used > user.daily_limit:

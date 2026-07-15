@@ -87,6 +87,12 @@ class Settings(BaseSettings):
 
     # --- Auth / quotas ---
     AUTH_REQUIRED: bool = False          # dev default: open; set True in prod
+    # Simple shared-password gate for the public deploy. When set, every search
+    # requires the X-App-Password header to match (the frontend prompts for it).
+    # Leave empty for open/local dev.
+    APP_PASSWORD: Optional[str] = None
+    # Per-search daily cap (protects credits even with the password). 0 = no cap.
+    MAX_SEARCHES_PER_DAY: int = 0
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALG: str = "HS256"
     ACCESS_TOKEN_TTL_MIN: int = 60

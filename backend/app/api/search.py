@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
-from ..deps import CurrentUser, enforce_quota
+from ..deps import CurrentUser, enforce_quota, verify_app_password
 from ..schemas import SearchRequest, SearchResponse
 from ..services.pipeline import SearchPipeline
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 pipeline = SearchPipeline(db=None)
 
 
-@router.post("", response_model=SearchResponse)
+@router.post("", response_model=SearchResponse, dependencies=[Depends(verify_app_password)])
 async def search(
     req: SearchRequest,
     user: CurrentUser = Depends(enforce_quota),

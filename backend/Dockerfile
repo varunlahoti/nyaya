@@ -14,10 +14,12 @@ COPY requirements-api.txt .
 RUN pip install --upgrade pip && pip install -r requirements-api.txt
 
 COPY app ./app
+COPY data ./data
 
 EXPOSE 8000
 
+# Bind to $PORT (Render/Fly set it); default 8000 for local/compose.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD curl -fsS "http://localhost:${PORT:-8000}/health" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
