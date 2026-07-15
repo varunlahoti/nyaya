@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, #efe9dd 0%, transparent 60%),
+    #f7f4ee;
+  color: #1a1f2e;
+}
+
+.score-ring {
+  background: conic-gradient(var(--c) calc(var(--v) * 1%), #e7e1d5 0);
+}

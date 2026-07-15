@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 120" width="96" height="120" role="img" aria-label="Powered by Indian Kanoon">
+  <text x="48" y="18" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#8f8f8f">powered by</text>
+  <circle cx="44" cy="72" r="30" fill="none" stroke="#ea7a2b" stroke-width="5"/>
+  <circle cx="48" cy="72" r="22" fill="none" stroke="#ea7a2b" stroke-width="4"/>
+  <circle cx="44" cy="34" r="5.5" fill="#26348c"/>
+  <rect x="41" y="42" width="6" height="54" rx="2" fill="#26348c"/>
+</svg>

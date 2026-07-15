@@ -1,0 +1,18 @@
+{
+  "name": "Nyaya — Legal Research",
+  "short_name": "Nyaya",
+  "description": "Facts in, relevant Indian judgments out.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#233043",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

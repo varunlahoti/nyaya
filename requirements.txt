@@ -1,0 +1,7 @@
+# Requirements for the Streamlit Community Cloud deploy.
+# Main file: backend/streamlit_app.py  (runs the pipeline in-process).
+# The full backend/API has its own, heavier backend/requirements.txt.
+streamlit>=1.40,<2
+pydantic>=2.9,<3
+pydantic-settings>=2.5,<3
+httpx>=0.27,<1

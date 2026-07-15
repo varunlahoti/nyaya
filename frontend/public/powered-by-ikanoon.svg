@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 96" width="340" height="96" role="img" aria-label="Powered by Indian Kanoon">
+  <!-- powered by -->
+  <text x="118" y="26" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#8f8f8f">powered by</text>
+  <!-- orange concentric rings (spiral feel via slight offset) -->
+  <circle cx="48" cy="60" r="30" fill="none" stroke="#ea7a2b" stroke-width="5"/>
+  <circle cx="52" cy="60" r="22" fill="none" stroke="#ea7a2b" stroke-width="4"/>
+  <!-- blue i: dot + stem -->
+  <circle cx="48" cy="22" r="5.5" fill="#26348c"/>
+  <rect x="45" y="30" width="6" height="54" rx="2" fill="#26348c"/>
+  <!-- wordmark -->
+  <text x="92" y="80" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700" fill="#26348c">kanoon</text>
+</svg>
