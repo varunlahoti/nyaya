@@ -99,6 +99,31 @@ def run_search(req: SearchRequest):
     return asyncio.run(get_pipeline().run(req))
 
 
+# --- Daily spend cap: hard ceiling on live searches to protect credits ------ #
+MAX_SEARCHES_PER_DAY = int(_secret("MAX_SEARCHES_PER_DAY") or 40)
+
+
+@st.cache_resource
+def _quota_state() -> dict:
+    # Process-global (shared across sessions), survives reruns. Resets on
+    # Space restart — fine as a soft ceiling for a shared demo.
+    return {"date": None, "count": 0}
+
+
+def _quota_remaining() -> int:
+    import datetime
+
+    q = _quota_state()
+    today = datetime.date.today().isoformat()
+    if q["date"] != today:
+        q["date"], q["count"] = today, 0
+    return MAX_SEARCHES_PER_DAY - q["count"]
+
+
+def _quota_consume() -> None:
+    _quota_state()["count"] += 1
+
+
 # ----------------------------- UI ---------------------------------------- #
 st.title("Nyaya  न्याय")
 st.caption("Type the facts. Get relevant Indian judgments, ranked, with source links.")
@@ -121,6 +146,8 @@ with st.sidebar:
     deep = st.checkbox("Deep mode (full-text ranking)",
                        help="Fetches full judgment text for top candidates — "
                             "higher quality, uses more Indian Kanoon credits.")
+    st.divider()
+    st.caption(f"Searches left today: {_quota_remaining()} / {MAX_SEARCHES_PER_DAY}")
 
 if "facts_input" not in st.session_state:
     st.session_state["facts_input"] = ""
@@ -138,6 +165,11 @@ if go:
     if len(facts.strip()) < 20:
         st.error("Please describe the facts in a little more detail (min 20 characters).")
         st.stop()
+    if _quota_remaining() <= 0:
+        st.error(f"Daily search limit reached ({MAX_SEARCHES_PER_DAY}/day). "
+                 "This protects the API credits — try again tomorrow.")
+        st.stop()
+    _quota_consume()
     req = SearchRequest(
         facts=facts, jurisdiction="any",
         court_level=CourtLevel(court_level), max_results=max_results, deep=deep,

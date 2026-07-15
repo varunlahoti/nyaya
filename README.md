@@ -1,3 +1,14 @@
+---
+title: Nyaya Legal Research
+emoji: ⚖️
+colorFrom: indigo
+colorTo: orange
+sdk: streamlit
+app_file: backend/streamlit_app.py
+pinned: false
+short_description: AI legal research for Indian advocates — facts in, judgments out
+---
+
 # Nyaya — AI Legal Research for Indian Advocates
 
 > Type the facts of a case in plain English. Get 5–10 relevant, citable judgments
