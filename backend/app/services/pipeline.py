@@ -24,8 +24,9 @@ from .retrievers import build_retrievers
 
 logger = logging.getLogger("nyaya.pipeline")
 
-# Identical-search cache TTL (24h). Repeat facts return instantly, 0 credits.
-SEARCH_CACHE_TTL = 24 * 3600
+# Identical-search cache TTL — repeat facts return the same frozen result,
+# instantly, 0 credits. Configurable (default 30 days) for reproducibility.
+SEARCH_CACHE_TTL = settings.SEARCH_CACHE_TTL_HOURS * 3600
 
 # Trust weights per source, used when blending scores across retrievers.
 SOURCE_WEIGHTS = {

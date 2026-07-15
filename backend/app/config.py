@@ -87,7 +87,10 @@ class Settings(BaseSettings):
 
     # --- Persistence / cache (optional) ---
     DATABASE_URL: Optional[str] = None   # e.g. postgresql+asyncpg://user:pass@db/nyaya
-    REDIS_URL: Optional[str] = None      # e.g. redis://redis:6379/0
+    REDIS_URL: Optional[str] = None      # e.g. redis://... (Upstash) — persistent cache
+    # Search-result cache lifetime. Longer = stronger reproducibility (a query
+    # returns the same frozen result), at the cost of freshness for new judgments.
+    SEARCH_CACHE_TTL_HOURS: int = 720    # 30 days
 
     # --- Auth / quotas ---
     AUTH_REQUIRED: bool = False          # dev default: open; set True in prod

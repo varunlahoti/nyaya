@@ -39,7 +39,8 @@ def _secret(key: str):
 # --- Bridge secrets into the environment BEFORE importing app.config -------- #
 # (app.config reads env / .env once and caches it, so this must run first.)
 for _k in ("OPENROUTER_API_KEY", "INDIAN_KANOON_API_TOKEN", "LLM_MODEL",
-           "LLM_PARSER_MODEL", "MAX_QUERIES_PER_SEARCH"):
+           "LLM_PARSER_MODEL", "MAX_QUERIES_PER_SEARCH", "MAX_SEARCHES_PER_DAY",
+           "REDIS_URL", "SEARCH_CACHE_TTL_HOURS"):
     _v = _secret(_k)
     if _v and not os.environ.get(_k):
         os.environ[_k] = str(_v)
