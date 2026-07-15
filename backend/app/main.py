@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api import auth, health, search
+from .api import auth, health, history, search
 from .config import settings
 
 logging.basicConfig(
@@ -33,6 +33,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
+app.include_router(history.router, prefix="/api/v1")
 
 
 async def _build_corpus():
@@ -52,6 +53,16 @@ async def _build_corpus():
 @app.on_event("startup")
 async def _startup():
     from .api.search import pipeline
+
+    # Create DB tables if a database is configured (Alembic recommended for prod).
+    if settings.DATABASE_URL and settings.DB_AUTO_CREATE:
+        try:
+            from .db.session import init_models
+
+            await init_models()
+            logger.info("DB tables ensured.")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("DB init failed: %s", exc)
 
     try:
         pipeline.db = await _build_corpus()

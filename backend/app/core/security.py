@@ -1,6 +1,8 @@
 """JWT + password hashing utilities."""
 from __future__ import annotations
 
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -9,7 +11,8 @@ from passlib.context import CryptContext
 
 from ..config import settings
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# argon2 (OWASP-recommended): no 72-byte limit, no passlib/bcrypt version clashes.
+_pwd = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -18,6 +21,15 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return _pwd.verify(plain, hashed)
+
+
+def new_refresh_token() -> str:
+    """Opaque, high-entropy refresh token (stored hashed server-side)."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def create_access_token(subject: str, extra: Optional[Dict[str, Any]] = None) -> str:

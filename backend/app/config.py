@@ -86,7 +86,10 @@ class Settings(BaseSettings):
     SEED_CORPUS_PATH: str = "data/seed_judgments.json"
 
     # --- Persistence / cache (optional) ---
-    DATABASE_URL: Optional[str] = None   # e.g. postgresql+asyncpg://user:pass@db/nyaya
+    DATABASE_URL: Optional[str] = None   # e.g. postgresql://user:pass@host/nyaya
+    # Create tables on startup if a DB is set (convenient bootstrap). Set False
+    # in production once you manage schema with Alembic migrations.
+    DB_AUTO_CREATE: bool = True
     REDIS_URL: Optional[str] = None      # e.g. redis://... (Upstash) — persistent cache
     # Search-result cache lifetime. Longer = stronger reproducibility (a query
     # returns the same frozen result), at the cost of freshness for new judgments.
