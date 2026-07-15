@@ -83,7 +83,7 @@ in-memory vector store. Set `VECTOR_BACKEND=memory` (the default in
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-api.txt
 VECTOR_BACKEND=memory uvicorn app.main:app --reload
 # then POST facts to /api/v1/search — real cases come back, 0 IK credits spent
 ```
@@ -124,7 +124,7 @@ for your keys — no separate API/frontend needed):
 ```bash
 cd backend
 source .venv/bin/activate
-pip install -r requirements.txt -r requirements-streamlit.txt
+pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
@@ -136,7 +136,7 @@ Opens a browser at http://localhost:8501 — type facts, get ranked judgments.
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-api.txt
 cp ../.env.example .env      # set keys
 uvicorn app.main:app --reload
 ```

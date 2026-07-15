@@ -1,0 +1,27 @@
+# Full dependencies for the FastAPI backend (the Next.js + API stack).
+# The deployed Streamlit app uses the minimal requirements.txt instead.
+# Install locally with:  pip install -r requirements-api.txt
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic>=2.11,<3
+pydantic-settings>=2.7,<3
+httpx>=0.27,<1
+anthropic==0.42.0
+
+# Auth / security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+email-validator==2.2.0
+
+# Persistence (optional at dev time — see config.DATABASE_URL)
+SQLAlchemy==2.0.36
+asyncpg==0.30.0
+pgvector==0.3.6
+
+# Cache / rate-limit (optional at dev time — see config.REDIS_URL)
+redis==5.2.1
+
+# Utilities
+tenacity==9.0.0
+python-dotenv==1.0.1
