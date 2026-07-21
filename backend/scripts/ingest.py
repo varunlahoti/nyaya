@@ -1,111 +1,75 @@
-"""Corpus ingestion: fetch judgments, chunk, embed, and store in pgvector.
+"""Corpus ingestion CLI — build Nyaya's own searchable judgment store.
 
-This closes the loop for the internal vector retriever. Point it at Indian Kanoon
-doc ids (or feed your own licensed corpus) to build the semantic index that
-powers fact-pattern retrieval.
+Thin wrapper over `app.services.ingest`. Fetches judgments from Indian Kanoon
+(cached), chunks (legal-aware), embeds, and stores them for hybrid retrieval.
 
-Usage:
-    python -m scripts.ingest --doc-ids 1983203 1766147 ...
-    python -m scripts.ingest --query "section 138 negotiable instruments" --limit 50
+Two sinks:
+  * jsonl     -> data/corpus.jsonl, read by the in-memory backend (no DB). Great
+                 for growing a local/demo corpus; 0 IK credits per search after.
+  * postgres  -> pgvector (needs DATABASE_URL). Production backend.
 
-Requires DATABASE_URL (and, for real embeddings, an embeddings key). Respect the
-Indian Kanoon ToS and rate limits — see docs/DATA_SOURCES.md.
+Examples:
+    # From ad-hoc queries into the local JSONL corpus:
+    python -m scripts.ingest --query "section 138 negotiable instruments dishonour" \
+                             --query "anticipatory bail section 438" --per-query 30
+
+    # From a curated query list into pgvector:
+    python -m scripts.ingest --queries-file data/ingest_queries.txt \
+                             --sink postgres
+
+    # From explicit Indian Kanoon doc ids:
+    python -m scripts.ingest --doc-ids 1766147 1233094 --sink jsonl
+
+Respect the Indian Kanoon ToS + rate limits (see docs/DATA_SOURCES.md). Only
+ingest content you are licensed to store.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import logging
-import uuid
-from typing import List
+from pathlib import Path
 
-from app.config import settings
-from app.services.embeddings import embed
-from app.services.retrievers.indian_kanoon import IndianKanoonRetriever
-from app.schemas import RetrievalQuery
+from app.services import ingest
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("nyaya.ingest")
-
-CHUNK_CHARS = 1500
-CHUNK_OVERLAP = 200
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 
 
-def chunk(text: str) -> List[str]:
-    chunks, i = [], 0
-    while i < len(text):
-        chunks.append(text[i : i + CHUNK_CHARS])
-        i += CHUNK_CHARS - CHUNK_OVERLAP
-    return [c for c in chunks if c.strip()]
+def _read_queries_file(path: str) -> list[str]:
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    # Ignore blanks and #-comments.
+    return [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith("#")]
 
 
-async def _store(engine, doc, chunks: List[str], vectors: List[List[float]]):
-    from sqlalchemy import text
+async def _run(args) -> None:
+    queries: list[str] = list(args.query or [])
+    if args.queries_file:
+        queries.extend(_read_queries_file(args.queries_file))
 
-    jid = f"j_{doc.source}_{doc.source_doc_id}"
-    async with engine.begin() as conn:
-        await conn.execute(
-            text(
-                """INSERT INTO judgments (id, source, source_doc_id, citation, title,
-                        court, date, url, full_text)
-                   VALUES (:id,:source,:sdid,:cit,:title,:court,
-                        NULLIF(:date,'')::date,:url,:full)
-                   ON CONFLICT (id) DO NOTHING"""
-            ),
-            {
-                "id": jid, "source": doc.source, "sdid": doc.source_doc_id,
-                "cit": doc.citation, "title": doc.title, "court": doc.court,
-                "date": doc.date or "", "url": doc.url, "full": doc.text,
-            },
-        )
-        for idx, (c, v) in enumerate(zip(chunks, vectors)):
-            await conn.execute(
-                text(
-                    """INSERT INTO judgment_chunks (judgment_id, chunk_index, text, embedding)
-                       VALUES (:jid,:idx,:text,:emb)"""
-                ),
-                {"jid": jid, "idx": idx, "text": c, "emb": str(v)},
-            )
-    logger.info("stored %s (%d chunks)", jid, len(chunks))
+    summary = await ingest.run_ingest(
+        queries=queries or None,
+        doc_ids=args.doc_ids or None,
+        per_query=args.per_query,
+        court_level=args.court_level,
+        sink=args.sink,
+    )
+    logging.getLogger("nyaya.ingest").info("Ingest complete: %s", summary)
 
 
-async def ingest_doc_ids(doc_ids: List[str]):
-    if not settings.DATABASE_URL:
-        raise SystemExit("Set DATABASE_URL to ingest.")
-    from sqlalchemy.ext.asyncio import create_async_engine
-
-    engine = create_async_engine(settings.DATABASE_URL)
-    ik = IndianKanoonRetriever()
-    for did in doc_ids:
-        doc = await ik.fetch_document(did)
-        if not doc or not doc.text:
-            logger.warning("skip %s (no document)", did)
-            continue
-        chunks = chunk(doc.text)
-        vectors = await embed(chunks)
-        await _store(engine, doc, chunks, vectors)
-    await engine.dispose()
-
-
-async def ingest_query(query: str, limit: int):
-    ik = IndianKanoonRetriever()
-    cands = await ik.search(RetrievalQuery(text=query, limit=limit))
-    await ingest_doc_ids([c.source_doc_id for c in cands])
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--doc-ids", nargs="*", default=[])
-    ap.add_argument("--query", default=None)
-    ap.add_argument("--limit", type=int, default=25)
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Ingest judgments into Nyaya's corpus.")
+    ap.add_argument("--query", action="append", help="Search query (repeatable).")
+    ap.add_argument("--queries-file", help="File with one query per line (#=comment).")
+    ap.add_argument("--doc-ids", nargs="*", default=[], help="Explicit IK doc ids.")
+    ap.add_argument("--per-query", type=int, default=20, help="Docs per query.")
+    ap.add_argument("--court-level", default="any",
+                    choices=["any", "supreme_court", "high_court"])
+    ap.add_argument("--sink", default="jsonl", choices=["jsonl", "postgres"])
     args = ap.parse_args()
 
-    if args.query:
-        asyncio.run(ingest_query(args.query, args.limit))
-    elif args.doc_ids:
-        asyncio.run(ingest_doc_ids(args.doc_ids))
-    else:
-        ap.error("provide --doc-ids or --query")
+    if not (args.query or args.queries_file or args.doc_ids):
+        ap.error("provide --query, --queries-file, or --doc-ids")
+    asyncio.run(_run(args))
 
 
 if __name__ == "__main__":

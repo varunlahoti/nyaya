@@ -9,6 +9,7 @@ from typing import List
 
 from ...config import settings
 from .base import BaseRetriever
+from .bm25 import BM25Retriever
 from .high_court import HighCourtRetriever
 from .indian_kanoon import IndianKanoonRetriever
 from .supreme_court import SupremeCourtRetriever
@@ -21,7 +22,8 @@ def build_retrievers(db=None) -> List[BaseRetriever]:
     """Instantiate the enabled + configured retrievers."""
     registry = {
         "indian_kanoon": IndianKanoonRetriever(),
-        "vector": VectorRetriever(db=db),
+        "vector": VectorRetriever(db=db),      # semantic over own corpus
+        "bm25": BM25Retriever(db=db),          # lexical over own corpus
         "supreme_court": SupremeCourtRetriever(),
         "high_court": HighCourtRetriever(),
     }

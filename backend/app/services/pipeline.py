@@ -33,7 +33,8 @@ SOURCE_WEIGHTS = {
     "indian_kanoon": 1.0,
     "supreme_court": 1.05,
     "high_court": 1.0,
-    "vector": 0.9,
+    "vector": 0.95,   # semantic (own corpus)
+    "bm25": 0.9,      # lexical (own corpus)
 }
 
 # Court-authority weights — binding precedent ranks above persuasive. Nudges
@@ -96,15 +97,18 @@ class SearchPipeline:
             logger.error("Retrieval fan-out error: %s", exc)
             results_nested = []
 
-        all_candidates: List[Candidate] = []
+        # Keep the ranked lists intact (one per successful retriever×query) — RRF
+        # fuses by rank, so it needs the per-list ordering, not a flat bag.
+        ranked_lists: List[List[Candidate]] = []
         for res in results_nested:
             if isinstance(res, Exception):
                 partial = True
                 continue
-            all_candidates.extend(res)
+            if res:
+                ranked_lists.append(res)
 
-        # 4. Merge, dedupe, blend scores (incl. court authority), cap.
-        candidates = self._merge_and_dedupe(all_candidates)
+        # 4. Fuse across sources/queries, blend court authority + citations, cap.
+        candidates = self._fuse(ranked_lists)
         candidates = candidates[: settings.CANDIDATE_CAP]
 
         if not candidates:
@@ -142,6 +146,50 @@ class SearchPipeline:
         return response
 
     # ------------------------------------------------------------------ #
+    def _fuse(self, ranked_lists: List[List[Candidate]]) -> List[Candidate]:
+        """Combine the per-retriever ranked lists into one ordered candidate set.
+
+        `rrf` (default) = Reciprocal Rank Fusion: robust across sources whose raw
+        scores live on different scales (IK rank vs cosine similarity vs BM25),
+        and it naturally rewards a judgment that surfaces in several lists
+        (corroboration). `weighted` keeps the older score-normalisation blend.
+        """
+        if settings.FUSION_METHOD == "weighted":
+            flat = [c for lst in ranked_lists for c in lst]
+            return self._merge_and_dedupe(flat)
+        return self._fuse_rrf(ranked_lists)
+
+    def _fuse_rrf(self, ranked_lists: List[List[Candidate]]) -> List[Candidate]:
+        k = settings.RRF_K
+        fused: Dict[str, float] = {}
+        best: Dict[str, Candidate] = {}
+        srcs: Dict[str, set] = {}
+
+        for lst in ranked_lists:
+            # Retrievers return best-first; re-sort defensively before ranking.
+            ordered = sorted(lst, key=lambda c: c.raw_score, reverse=True)
+            for rank, c in enumerate(ordered):
+                key = c.dedupe_key
+                w = SOURCE_WEIGHTS.get(c.source, 1.0)
+                fused[key] = fused.get(key, 0.0) + w / (k + rank)
+                srcs.setdefault(key, set()).add(c.source)
+                # Keep the representative with the richest snippet / metadata.
+                cur = best.get(key)
+                if cur is None or _richness(c) > _richness(cur):
+                    best[key] = c
+
+        out: List[Candidate] = []
+        for key, c in best.items():
+            cw = COURT_WEIGHTS.get(c.court_level, COURT_WEIGHTS[None])
+            cite_boost = 1 + min(0.20, 0.05 * math.log10(1 + c.cites)) if c.cites else 1.0
+            # Cross-source agreement (both lexical AND semantic AND IK) is a strong
+            # signal — nudge multi-source hits up beyond their summed RRF score.
+            agree_boost = 1 + 0.05 * (len(srcs[key]) - 1)
+            c.prelim_score = fused[key] * cw * cite_boost * agree_boost
+            out.append(c)
+
+        return sorted(out, key=lambda c: c.prelim_score, reverse=True)
+
     def _merge_and_dedupe(self, candidates: List[Candidate]) -> List[Candidate]:
         # Normalise raw scores per source, then blend with source trust weight.
         by_source: Dict[str, List[Candidate]] = {}
@@ -212,3 +260,8 @@ class SearchPipeline:
             partial=partial,
             notice=notice,
         )
+
+
+def _richness(c: Candidate) -> tuple:
+    """Prefer the representative with a citation and the longest snippet."""
+    return (bool(c.citation), len(c.snippet or ""), c.cites)

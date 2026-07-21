@@ -1,0 +1,12 @@
+# Offline corpus-building tools — only needed to RUN the ingestion scripts
+# (scripts/ingest.py, scripts/bulk_ingest.py), not by the API or Streamlit
+# runtime. The bulk loader lazy-imports these, so each is required only for the
+# format you actually use:
+#   pandas + pyarrow   -> --format parquet  (HuggingFace datasets)
+#   pypdf              -> --format pdf-dir   (official SCR/HC judgment PDFs)
+#   huggingface_hub    -> --hf-repo/--hf-file (pull a dataset file directly)
+# Install with:  pip install -r requirements-ingest.txt
+pandas>=2.0,<3
+pyarrow>=15
+pypdf>=5
+huggingface_hub>=0.24

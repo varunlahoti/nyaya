@@ -44,14 +44,27 @@ class Settings(BaseSettings):
     # --- Indian Kanoon API ---
     INDIAN_KANOON_API_TOKEN: Optional[str] = None
     INDIAN_KANOON_BASE_URL: str = "https://api.indiankanoon.org"
+    # IK returns ~10 hits per search page. To fill PER_RETRIEVER_LIMIT (>10) we
+    # must fetch several pages — each page is a separate /search call (≈1 credit).
+    # This caps how deep we page per query so credit burn stays bounded. 1 =
+    # legacy single-page (~10 hits); 3 = ~30-hit pool per query (recommended).
+    IK_MAX_PAGES: int = 3
 
     # --- Retrieval ---
-    ENABLED_RETRIEVERS: List[str] = ["indian_kanoon", "vector"]
+    # Hybrid by default: IK (live keyword) + vector (semantic) + bm25 (lexical)
+    # over our own corpus. Fused by RRF. Drop "bm25"/"vector" to disable the
+    # local corpus, drop "indian_kanoon" for a fully self-hosted (0-credit) mode.
+    ENABLED_RETRIEVERS: List[str] = ["indian_kanoon", "vector", "bm25"]
+    # Score fusion across retrievers: "rrf" (rank-based, robust across score
+    # scales — recommended for hybrid) or "weighted" (score-normalisation blend).
+    FUSION_METHOD: str = "rrf"
+    RRF_K: int = 60                   # RRF damping constant (standard default)
     CANDIDATE_CAP: int = 25           # how many candidates go to the reranker (cost lever)
     # IK boolean/phrase queries can take 10-15s; keep this generous.
     RETRIEVER_TIMEOUT_SECONDS: float = 20.0
-    # Fetch more per query (same # of IK calls = same credits) so landmark cases
-    # are more likely to enter the candidate pool.
+    # Bigger per-query pool so landmark cases are more likely to enter the
+    # candidate set before rerank. For IK this may span multiple pages (see
+    # IK_MAX_PAGES) — costs extra credits; local corpus retrievers page free.
     PER_RETRIEVER_LIMIT: int = 25     # results requested per source per query
     # Cap queries per search. Each query ≈ 1 Indian Kanoon credit, so this is the
     # direct lever on credit burn. 3 = conserve (free-tier dev); 6 = full breadth.
@@ -72,8 +85,19 @@ class Settings(BaseSettings):
     EMBEDDINGS_PROVIDER: str = "hash"
     EMBEDDINGS_MODEL: str = "voyage-law-2"
     EMBEDDINGS_DIM: int = 1024
+    EMBEDDINGS_BATCH: int = 64        # texts per embeddings API call (ingestion)
     VOYAGE_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
+
+    # --- Chunking (ingestion + corpus) ---
+    CHUNK_TARGET_CHARS: int = 1200    # ~1-2 paragraphs of judgment text per chunk
+    CHUNK_OVERLAP_CHARS: int = 150    # carry-over so a holding spanning a boundary survives
+    CHUNK_MAX_PER_DOC: int = 40       # cap chunks for a very long judgment
+
+    # --- Ingestion (build the local corpus from Indian Kanoon / seeds) ---
+    INGEST_CONCURRENCY: int = 4       # parallel IK doc fetches (be polite)
+    INGEST_MAX_DOCS: int = 500        # safety cap per ingest run
+    CORPUS_PATH: str = "data/corpus.jsonl"   # ingested judgments (JSONL, memory backend)
 
     # --- Vector corpus backend ---
     # "none"     -> no internal corpus (retrieval relies on Indian Kanoon only)

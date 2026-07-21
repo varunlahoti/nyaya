@@ -1,0 +1,53 @@
+# Curated seed queries to bootstrap Nyaya's corpus across common practice areas.
+# One query per line. Lines starting with # are ignored.
+# Run: python -m scripts.ingest --queries-file data/ingest_queries.txt --per-query 30
+# Tune breadth with --per-query and INGEST_MAX_DOCS. Ingest only licensed content.
+
+# --- Criminal ---
+anticipatory bail section 438 CrPC principles
+arrest guidelines section 41 CrPC Arnesh Kumar
+quashing of FIR section 482 CrPC inherent powers
+dishonour of cheque section 138 negotiable instruments act
+cruelty section 498A IPC misuse safeguards
+bail cancellation parameters serious offence
+circumstantial evidence last seen theory conviction
+dying declaration evidentiary value conviction
+
+# --- Constitutional ---
+fundamental rights article 21 personal liberty
+basic structure doctrine constitution
+right to privacy Puttaswamy aadhaar
+reservation article 16 promotion creamy layer
+freedom of speech article 19 reasonable restriction
+
+# --- Civil / Property ---
+specific performance contract readiness willingness
+adverse possession title limitation
+partition coparcenary Hindu succession act
+easement right of way prescription
+landlord tenant eviction bona fide requirement
+
+# --- Family ---
+maintenance section 125 CrPC wife divorced
+custody of child welfare paramount consideration
+divorce cruelty desertion Hindu Marriage Act
+irretrievable breakdown of marriage
+restitution of conjugal rights
+
+# --- Commercial / Contract ---
+breach of contract damages measure
+arbitration award setting aside section 34
+cheque bounce compensation section 138
+insolvency bankruptcy code CIRP operational creditor
+negotiable instruments presumption section 139
+
+# --- Service / Labour ---
+disciplinary proceedings natural justice enquiry
+termination of service reinstatement back wages
+regularisation of contractual employee
+industrial dispute retrenchment compensation
+
+# --- Tort / Consumer ---
+medical negligence standard of care compensation
+consumer deficiency in service compensation
+motor accident compensation just multiplier

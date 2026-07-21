@@ -26,3 +26,6 @@ out/
 *.log
 .idea/
 .vscode/
+
+# Bulk-ingested corpus (regenerable via scripts/bulk_ingest.py)
+backend/data/corpus.jsonl
