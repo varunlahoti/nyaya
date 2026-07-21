@@ -125,9 +125,13 @@ class Candidate:
 
     @property
     def dedupe_key(self) -> str:
+        # Citation is the strongest identity (merges the same case across sources).
         if self.citation:
             return _norm(self.citation)
-        return f"{self.source}:{self.source_doc_id}"
+        # Else fall back to the doc id WITHOUT the source prefix, so the same
+        # judgment surfaced by both the vector and BM25 retrievers (which share a
+        # judgment id) fuses into one candidate instead of double-counting.
+        return f"doc:{_norm(self.source_doc_id)}"
 
 
 @dataclass

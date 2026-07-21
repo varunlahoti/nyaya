@@ -1,8 +1,12 @@
 """Supreme Court of India retriever — direct-source adapter (pluggable stub).
 
-Enable only where automated access is permitted. Prefer the official electronic
-Supreme Court Reports (eSCR) bulk/downloadable data over page scraping. See
-docs/DATA_SOURCES.md.
+Enable only where automated access is permitted. Prefer the official Supreme
+Court Reports (SCR) bulk/downloadable data over page scraping — as of 8 May 2025
+the eSCR and DigiSCR portals were merged into the free SCR portal at
+https://scr.sci.gov.in/scrsearch/ (judgments 1950-, no login). It exposes no
+documented API, so the ToS-preferred integration is: download the official
+judgment PDFs and load them via `scripts.bulk_ingest` (see docs/DATA_SOURCES.md),
+NOT live scraping of its internal endpoints.
 
 The contract is identical to every other retriever, so wiring a real
 implementation later requires no changes to the orchestrator: implement

@@ -40,7 +40,11 @@ def _secret(key: str):
 # (app.config reads env / .env once and caches it, so this must run first.)
 for _k in ("OPENROUTER_API_KEY", "INDIAN_KANOON_API_TOKEN", "LLM_MODEL",
            "LLM_PARSER_MODEL", "MAX_QUERIES_PER_SEARCH", "MAX_SEARCHES_PER_DAY",
-           "REDIS_URL", "SEARCH_CACHE_TTL_HOURS"):
+           "REDIS_URL", "SEARCH_CACHE_TTL_HOURS",
+           # Hosted corpus (Neon pgvector) + embeddings — enables the hybrid
+           # IK + own-library search on Streamlit Cloud, not just IK-only.
+           "DATABASE_URL", "VOYAGE_API_KEY", "OPENAI_API_KEY",
+           "EMBEDDINGS_PROVIDER", "VECTOR_BACKEND", "ENABLED_RETRIEVERS"):
     _v = _secret(_k)
     if _v and not os.environ.get(_k):
         os.environ[_k] = str(_v)
@@ -86,9 +90,24 @@ def get_pipeline() -> SearchPipeline:
     """Build the pipeline once, wiring the corpus backend from config."""
     db = None
     if settings.VECTOR_BACKEND == "memory":
+        import json
+        from pathlib import Path
+
+        from app.services import ingest
         from app.services.memory_store import InMemoryCorpus
 
-        db = asyncio.run(InMemoryCorpus.from_seed(settings.SEED_CORPUS_PATH))
+        # Seed landmarks + any ingested judgments (data/corpus.jsonl), de-duped by
+        # id, loaded as one hybrid (vector + BM25) in-RAM corpus.
+        seed = Path(__file__).resolve().parent / settings.SEED_CORPUS_PATH
+        records = {}
+        if seed.exists():
+            for r in json.loads(seed.read_text(encoding="utf-8")):
+                records[r["id"]] = r
+        for r in ingest.load_jsonl():
+            records[r["id"]] = r
+        corpus = InMemoryCorpus()
+        asyncio.run(corpus.load(list(records.values())))
+        db = corpus
     elif settings.VECTOR_BACKEND == "postgres" and settings.DATABASE_URL:
         from app.db.base import VectorStore
 

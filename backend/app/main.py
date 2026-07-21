@@ -40,9 +40,25 @@ async def _build_corpus():
     """Attach the vector-corpus backend selected by VECTOR_BACKEND."""
     backend = settings.VECTOR_BACKEND
     if backend == "memory":
+        import json
+        from pathlib import Path
+
+        from .services import ingest
         from .services.memory_store import InMemoryCorpus
 
-        return await InMemoryCorpus.from_seed(settings.SEED_CORPUS_PATH)
+        # Seed landmarks + any judgments ingested into data/corpus.jsonl (de-dupe
+        # by id, ingested wins) → one hybrid (vector + BM25) in-RAM corpus.
+        seed_path = Path(__file__).resolve().parents[1] / settings.SEED_CORPUS_PATH
+        records = {}
+        if seed_path.exists():
+            for r in json.loads(seed_path.read_text(encoding="utf-8")):
+                records[r["id"]] = r
+        for r in ingest.load_jsonl():
+            records[r["id"]] = r
+
+        corpus = InMemoryCorpus()
+        await corpus.load(list(records.values()))
+        return corpus
     if backend == "postgres" and settings.DATABASE_URL:
         from .db.base import VectorStore
 

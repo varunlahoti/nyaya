@@ -4,6 +4,15 @@
 > decision, the deploy state, gotchas, and the open questions — so a fresh
 > session can continue without re-deriving context. Last updated: 2026-07-16.
 
+> **Update (this session):** the **hybrid retrieval engine is now built** — own
+> semantic (vector) + lexical (BM25) index over an ingested corpus, fused with
+> Reciprocal Rank Fusion (RRF), on top of IK-live. Legal-aware chunker,
+> ingestion pipeline (JSONL + pgvector), and an offline benchmark harness
+> (`recall@k`/MRR) are in. See **`docs/RETRIEVAL.md`**. Still TODO before it goes
+> live: run ingestion with a real embeddings key (`voyage-law-2`) to build a
+> larger corpus, then benchmark with `--embeddings voyage` to confirm vector +
+> hybrid beat BM25 on Indian legal text (the embedding de-risk).
+
 ---
 
 ## 0. TL;DR
@@ -269,9 +278,12 @@ logins. Assistant guides; user clicks.
   (relevance, missing landmarks, willingness-to-pay, UX friction, features).
 - **THEN (user's signal) — production build for thousands:**
   - **Phase 2 Billing:** Razorpay subscriptions + webhooks + metering + portal.
-  - **Retrieval upgrade (top priority for quality):** own semantic/hybrid index
-    over an ingested corpus (voyage-law-2 embeddings + BM25), full-text rerank,
-    eSCR + eCourts sources, expand seed corpus.
+  - **Retrieval upgrade (top priority for quality) — BUILT this session:** own
+    hybrid index over an ingested corpus (vector + BM25, RRF fusion), legal-aware
+    chunker, ingestion pipeline (`scripts/ingest.py`), benchmark harness
+    (`scripts/benchmark.py`). Remaining: run ingestion with `voyage-law-2` to
+    build a real corpus, benchmark to confirm gains, add eSCR + eCourts sources.
+    Full-text (deep) rerank already existed. See `docs/RETRIEVAL.md`.
   - **Depth:** exports (Word/PDF memo), matters, saved searches, feedback loop,
     statute browser, LiveLaw/Bar&Bench RSS news layer + cross-links.
   - **Scale/ops:** observability (Sentry, metrics, cost/search), rate-limit

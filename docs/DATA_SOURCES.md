@@ -82,17 +82,53 @@ From the IKanoon API Services Agreement. These are contractual, not optional:
   content, follow their caching/retention terms. For court PDFs, follow the
   court portal's terms.
 
+### Breaking IK-rank dependency: bulk open-dataset ingest
+
+Until now the corpus was ingested *from IK*, so IK effectively ranked every
+result. To get cases IK ranks poorly (or lacks, or OCRs badly), bulk-load
+**open, freely-licensed judgment datasets** into the same corpus — then results
+are ranked by *our* hybrid RRF, not IK's page order.
+
+- **Loader**: `backend/app/services/bulk_ingest.py` — a generic normaliser that
+  maps arbitrary dataset columns onto the canonical judgment schema (`id, title,
+  citation, court, court_level, date, url, cites, text`). Auto-detects common
+  column names; override the odd one with a field map.
+- **CLI**: `python -m scripts.bulk_ingest --source <tag> [--sink jsonl|postgres]`
+  with one input:
+  - `--path <file|dir>` — local `jsonl` / `json` / `csv` / `parquet`, or a
+    directory of PDFs with `--format pdf-dir` (official SCR/HC judgment PDFs;
+    scanned/image PDFs need OCR first and are skipped with a warning).
+  - `--hf-repo <id> --hf-file <path>` — pull a HuggingFace dataset file directly
+    (parquet auto-detected). Format is auto-detected from the extension.
+  - `--map canonical=source_column` (repeatable) overrides the auto-detected
+    column names. Idempotent: de-dupes by id, keeps the richer copy on collision.
+- **Extra deps**: format-specific and lazy-imported — `pip install -r
+  requirements-ingest.txt` (pandas/pyarrow for parquet, pypdf for PDFs,
+  huggingface_hub for `--hf-*`). Not needed by the API/Streamlit runtime.
+- **Candidate datasets** (verify each licence before ingesting): HuggingFace
+  Indian-law corpora (e.g. ILDC, opennyai judgment sets), the Supreme Court SCR
+  portal's official judgment PDFs (§3), and any court open-data export.
+- **Effect**: adds coverage + independence with zero orchestrator changes — the
+  RRF fusion already treats every source uniformly, so a better case surfaces
+  regardless of which source it came from.
+
 ---
 
 ## 3. Supreme Court of India (direct — pluggable)
 
-- **What**: `main.sci.gov.in` / eSCR (electronic Supreme Court Reports) publish
-  official judgments and neutral citations.
-- **Integration status**: **Adapter stub** with a defined contract. Enable only
-  where automated access is permitted; prefer official bulk/downloadable data
-  (eSCR) over page scraping.
+- **What**: The **SCR portal** (`scr.sci.gov.in/scrsearch/`) — the free official
+  Supreme Court Reports search, formed on **8 May 2025** by merging the older
+  **eSCR** and **DigiSCR** portals (which are now decommissioned). Covers
+  judgments from 1950 onward with official PDFs and neutral citations; no login.
+- **Integration status**: **Adapter stub**. The portal exposes **no documented
+  API** — it's a JS front-end over an internal endpoint. Do **not** scrape that
+  live; the ToS-preferred path is to download the official judgment PDFs and load
+  them through the **bulk ingest** pipeline (§2), which puts SC judgments into our
+  own corpus and out of IK's ranking. A live adapter is only worth it for
+  same-day freshness, and only if automated access is confirmed permissible.
 - **Adapter**: `backend/app/services/retrievers/supreme_court.py`.
-- **Value when enabled**: authoritative neutral citations and official PDFs.
+- **Value when enabled**: authoritative neutral citations and clean official
+  PDFs (not IK OCR).
 
 ---
 

@@ -73,28 +73,23 @@ class IndianKanoonRetriever:
             return []
         form_input = self._form_input(query)
 
-        # Cache: identical IK query within the week → no credit spent.
+        # Cache: identical IK query within the week → no credit spent. The key
+        # includes the limit, so a deeper (multi-page) pull is cached separately.
         ckey = cache.ik_query_key(form_input, query.limit)
         cached = await cache.get_json(ckey)
         if cached is not None:
             return [Candidate(**c) for c in cached]
 
-        url = f"{settings.INDIAN_KANOON_BASE_URL}/search/"
-        try:
-            async with httpx.AsyncClient(timeout=settings.RETRIEVER_TIMEOUT_SECONDS) as client:
-                resp = await client.post(
-                    url,
-                    headers=self._headers(),
-                    params={"formInput": form_input, "pagenum": 0},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Indian Kanoon search failed (%s): %s", query.tag, exc)
+        # IK returns ~10 hits/page. Page until we have `limit` docs or run dry,
+        # bounded by IK_MAX_PAGES so credit burn stays predictable.
+        docs = await self._fetch_pages(form_input, query.limit, query.tag)
+        if not docs:
             return []
 
+        # Score by global rank across all fetched pages so page-2 hits rank
+        # below page-1 hits (preserves IK's own relevance ordering in RRF).
+        n = len(docs)
         candidates: List[Candidate] = []
-        docs = data.get("docs", []) or []
         for i, d in enumerate(docs[: query.limit]):
             docid = str(d.get("tid") or d.get("docid") or "")
             if not docid:
@@ -110,7 +105,7 @@ class IndianKanoonRetriever:
                 date=d.get("publishdate") or d.get("date") or None,
                 snippet=_clean(d.get("headline", "")),
                 # Rank-based fallback score; blended later.
-                raw_score=float(len(docs) - i) / max(len(docs), 1),
+                raw_score=float(n - i) / max(n, 1),
                 # Authority signal (if IK returns it) → boosts well-cited landmarks.
                 cites=int(d.get("numcitedby") or d.get("numcites") or 0),
             ))
@@ -119,6 +114,35 @@ class IndianKanoonRetriever:
             ckey, [dataclasses.asdict(c) for c in candidates], IK_CACHE_TTL
         )
         return candidates
+
+    async def _fetch_pages(self, form_input: str, limit: int, tag: Optional[str]) -> List[dict]:
+        """Fetch IK search pages until we have `limit` hits (or IK_MAX_PAGES)."""
+        url = f"{settings.INDIAN_KANOON_BASE_URL}/search/"
+        docs: List[dict] = []
+        seen: set = set()
+        try:
+            async with httpx.AsyncClient(timeout=settings.RETRIEVER_TIMEOUT_SECONDS) as client:
+                for pagenum in range(settings.IK_MAX_PAGES):
+                    resp = await client.post(
+                        url,
+                        headers=self._headers(),
+                        params={"formInput": form_input, "pagenum": pagenum},
+                    )
+                    resp.raise_for_status()
+                    page = resp.json().get("docs", []) or []
+                    if not page:
+                        break  # no more results — stop paging (saves a credit)
+                    for d in page:
+                        did = str(d.get("tid") or d.get("docid") or "")
+                        if did and did not in seen:
+                            seen.add(did)
+                            docs.append(d)
+                    if len(docs) >= limit:
+                        break
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Indian Kanoon search failed (%s): %s", tag, exc)
+            # Return whatever we gathered before the error rather than nothing.
+        return docs
 
     async def fetch_document(self, doc_id: str) -> Optional[JudgmentDoc]:
         if not self.enabled():
