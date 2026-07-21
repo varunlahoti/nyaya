@@ -274,6 +274,20 @@ logins. Assistant guides; user clicks.
 
 ## 11. Roadmap / open actions
 
+- **LIVE now — hosted hybrid library (built 2026-07-21):** IK + own Neon
+  pgvector corpus, Voyage `voyage-law-2` embeddings, fused. Streamlit reads it
+  when secrets are set. **Open items:**
+  - [ ] **Load remaining ~9k SC judgments.** Neon free tier (0.5 GB) filled at
+    ~31,500 rows (**28,003 of ~37k SC + 3.5k HC**) — `DiskFullError`. 1024-dim
+    vectors + HNSW index are the space hog, not text. Options: re-embed at
+    256/512-dim (voyage-3-lite) to fit all 37k free, OR Neon paid ($19/mo), OR
+    move to Oracle/VPS (200 GB) for full set + eventual full-text. **Accepted 28k
+    for now.**
+  - [ ] **Full-text SC** (currently title+citation snippet only → coverage/lookup
+    layer, weak for fact-pattern). Fetch digiscr PDFs → deep-fetch/pdf-dir ingest;
+    needs >0.5 GB storage.
+  - [ ] Prune 140 duplicate SC done; watch that `load_corpus_to_neon.py` re-run
+    doesn't re-add them (filter SC out of that path if rebuilding).
 - **NOW:** advocate friend validates the Streamlit demo → collect feedback
   (relevance, missing landmarks, willingness-to-pay, UX friction, features).
 - **THEN (user's signal) — production build for thousands:**
