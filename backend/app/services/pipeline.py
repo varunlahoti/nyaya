@@ -128,6 +128,16 @@ class SearchPipeline:
             req.facts, parsed, candidates, req.max_results
         )
 
+        # Candidates existed but none cleared the relevance bar → tell the user
+        # rather than returning a bare empty list (or, worse, score-0 noise).
+        if not results:
+            return self._empty_response(
+                search_id, parsed, t0, sources_used=sources_used, partial=partial,
+                notice=("Found related cases but none squarely on-point. Try adding "
+                        "more specific facts, the statute/section, or party details "
+                        "(e.g. 'section 498A IPC cruelty by husband')."),
+            )
+
         latency_ms = int((time.perf_counter() - t0) * 1000)
         response = SearchResponse(
             search_id=search_id,

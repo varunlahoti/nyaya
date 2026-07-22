@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     FUSION_METHOD: str = "rrf"
     RRF_K: int = 60                   # RRF damping constant (standard default)
     CANDIDATE_CAP: int = 25           # how many candidates go to the reranker (cost lever)
+    # Drop reranked results scoring below this (0-100). Prevents showing "score 0,
+    # this case is irrelevant" cards when retrieval surfaces only off-point cases.
+    RERANK_MIN_SCORE: int = 25
     # IK boolean/phrase queries can take 10-15s; keep this generous.
     RETRIEVER_TIMEOUT_SECONDS: float = 20.0
     # Bigger per-query pool so landmark cases are more likely to enter the
