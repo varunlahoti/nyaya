@@ -16,15 +16,33 @@ _engine = None
 _sessionmaker = None
 
 
+# Generic tokens that carry no legal signal but flood keyword search — they
+# appear in thousands of case titles / party names (e.g. "M/s X Pvt Ltd vs Union
+# of India"). Matching on these returns party-name coincidences, not on-point law,
+# so they are dropped from the tsquery. Distinctive terms (statute names, section
+# numbers, offences, "freelancer", "moonlighting") are kept.
+_TSQUERY_STOP = {
+    "the", "and", "for", "with", "under", "while", "can", "you", "your", "who",
+    "what", "how", "why", "are", "was", "will", "our", "any", "all", "not", "but",
+    "company", "companies", "limited", "ltd", "pvt", "private", "corporation",
+    "corp", "union", "india", "indian", "state", "states", "ors", "anr", "another",
+    "others", "versus", "through", "thru", "rep", "represented", "mrs", "smt",
+    "sri", "shri", "person", "matter", "case", "cases", "act", "acts", "section",
+    "sections", "working", "work", "employee", "employees", "employer", "same",
+    "time", "full", "part", "whether", "government", "authority", "board", "ltd.",
+}
+
+
 def _or_tsquery(query: str, max_terms: int = 20) -> str:
-    """Sanitise free text into an OR tsquery: 'a b c' -> 'a | b | c'.
+    """Sanitise free text into an OR tsquery of DISTINCTIVE terms: 'a | b | c'.
 
     Keeps alphanumeric tokens (incl. section numbers like 498a), drops 1-2 char
-    noise, de-dupes. Sanitised so it is safe to pass to to_tsquery().
+    noise and generic legal/party-name stopwords, de-dupes. Sanitised so it is
+    safe to pass to to_tsquery().
     """
     seen, terms = set(), []
     for tok in re.split(r"[^0-9A-Za-z]+", query.lower()):
-        if len(tok) > 2 and tok not in seen:
+        if len(tok) > 2 and tok not in seen and tok not in _TSQUERY_STOP:
             seen.add(tok)
             terms.append(tok)
         if len(terms) >= max_terms:
