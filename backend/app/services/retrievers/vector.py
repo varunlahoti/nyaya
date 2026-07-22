@@ -46,6 +46,12 @@ class VectorRetriever:
 
         candidates: List[Candidate] = []
         for r in rows:
+            similarity = float(1.0 - r.get("distance", 1.0))
+            # Skip weak matches: knn always returns top-K, so a query the corpus
+            # can't answer would otherwise contribute near-random cases that drown
+            # out the live-IK hits. Below the floor = not a real semantic match.
+            if similarity < settings.MIN_VECTOR_SIMILARITY:
+                continue
             candidates.append(Candidate(
                 source=self.name,
                 source_doc_id=str(r["judgment_id"]),
@@ -56,8 +62,7 @@ class VectorRetriever:
                 court_level=r.get("court_level"),
                 date=r.get("date"),
                 snippet=r.get("chunk_text", "")[:400],
-                # Cosine distance -> similarity score.
-                raw_score=float(1.0 - r.get("distance", 1.0)),
+                raw_score=similarity,
             ))
         return candidates
 

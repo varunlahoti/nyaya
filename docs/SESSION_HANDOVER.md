@@ -39,10 +39,24 @@ flaky 0-vs-8.
 (SC, score 90) + real DV/matrimonial HC cases; anticipatory-bail query → Sushila
 Aggarwal (landmark, 95); off-domain query → the no-match notice. Tests pass (4/4).
 
-**Still known (not blocking):** deep mode is slow (~56s: live IK + full-text fetch
-+ LLM rerank with thinking); famous SC cases with rich full-text can out-score
-on-point HC cases that only have thin snippets (data limitation — HC library is
-snippet-level). Deployed via PR (merge → Streamlit rebuild).
+**Round 2 (same issue, deeper causes):** even after round 1, "domestic violence and
+dowry" still surfaced Shayara Bano/Puttaswamy (famous, off-topic). Found two more
+root causes: (a) **fusion cite-boost + SC court-weight over-favoured famous
+high-cite cases**, burying on-point low-cite HC/§498A cases → gentled the weights
+(`COURT_WEIGHTS` SC 1.15→1.05, `cite_boost` max 0.20→0.06 in `pipeline.py`).
+(b) **The vector HC library (3.5k random KanoonGPT sample) has no good DV cases**,
+but `knn` returns its top-K regardless of how weak, flooding the pool with random
+writ petitions (BHARAT SALT vs STATE, sim ~0.15) and burying IK → added a
+**similarity floor** `MIN_VECTOR_SIMILARITY=0.30` (`vector.py`, config). Also
+recalibrated the reranker prompt (score by legal-AREA/statute match, not exact
+sub-question; famous-off-subject → <20) + fed it the parsed statutes.
+**Verified:** dowry → "IN RE ENFORCEMENT OF DOWRY" + "Delhi Domestic Working
+Women's Forum" (no landmarks); anticipatory bail → Gurbaksh Singh Sibbia (90),
+Sushila Aggarwal (85). **Lesson: the random HC sample hurts more than helps — a
+curated corpus matters (see open items).**
+
+**Still known (not blocking):** deep mode slow (~56s); HC library is a random
+snippet-level sample (low value — curate it). Deployed via PR.
 
 ---
 
