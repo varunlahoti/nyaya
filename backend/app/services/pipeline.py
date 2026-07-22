@@ -37,13 +37,15 @@ SOURCE_WEIGHTS = {
     "bm25": 0.9,      # lexical (own corpus)
 }
 
-# Court-authority weights — binding precedent ranks above persuasive. Nudges
-# Supreme Court authority up so landmarks aren't buried under High Court hits.
+# Court-authority weights — a GENTLE nudge only. Kept small on purpose: an
+# aggressive SC boost buries on-point High Court cases under famous-but-off-topic
+# Supreme Court landmarks. Relevance (RRF rank) should lead; the reranker makes
+# the final authority call (prefer binding court when genuinely on-point).
 COURT_WEIGHTS = {
-    "supreme_court": 1.15,
+    "supreme_court": 1.05,
     "high_court": 1.0,
-    "trial": 0.9,
-    None: 0.95,
+    "trial": 0.97,
+    None: 1.0,
 }
 
 
@@ -191,7 +193,7 @@ class SearchPipeline:
         out: List[Candidate] = []
         for key, c in best.items():
             cw = COURT_WEIGHTS.get(c.court_level, COURT_WEIGHTS[None])
-            cite_boost = 1 + min(0.20, 0.05 * math.log10(1 + c.cites)) if c.cites else 1.0
+            cite_boost = 1 + min(0.06, 0.02 * math.log10(1 + c.cites)) if c.cites else 1.0
             # Cross-source agreement (both lexical AND semantic AND IK) is a strong
             # signal — nudge multi-source hits up beyond their summed RRF score.
             agree_boost = 1 + 0.05 * (len(srcs[key]) - 1)
@@ -216,7 +218,7 @@ class SearchPipeline:
                 # Blend source trust with court authority (binding > persuasive)
                 # and a gentle citation-count boost (well-cited = more authoritative).
                 cw = COURT_WEIGHTS.get(c.court_level, COURT_WEIGHTS[None])
-                cite_boost = 1 + min(0.20, 0.05 * math.log10(1 + c.cites)) if c.cites else 1.0
+                cite_boost = 1 + min(0.06, 0.02 * math.log10(1 + c.cites)) if c.cites else 1.0
                 c.prelim_score = norm * w * cw * cite_boost
 
         # Dedupe: keep the highest prelim_score per dedupe key; if a judgment

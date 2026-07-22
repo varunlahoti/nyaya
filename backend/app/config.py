@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # Drop reranked results scoring below this (0-100). Prevents showing "score 0,
     # this case is irrelevant" cards when retrieval surfaces only off-point cases.
     RERANK_MIN_SCORE: int = 25
+    # Minimum cosine similarity for a vector-corpus hit to count. knn returns the
+    # top-K no matter how weak, so a query with no good match in the corpus would
+    # otherwise flood the pool with near-random cases and bury the live-IK hits.
+    MIN_VECTOR_SIMILARITY: float = 0.30
     # IK boolean/phrase queries can take 10-15s; keep this generous.
     RETRIEVER_TIMEOUT_SECONDS: float = 20.0
     # Bigger per-query pool so landmark cases are more likely to enter the

@@ -22,12 +22,23 @@ numbered list of REAL candidate judgments retrieved from Indian legal databases 
 (title, court, date, and a snippet each).
 
 Your task:
-1. Judge each candidate's relevance to THESE specific facts and issues, 0-100. \
-Reward genuinely on-point authority (same legal issue, similar fact pattern). \
-Penalise superficial keyword overlap. When two judgments are similarly on-point, \
-PREFER the one from the higher / binding court (Supreme Court over High Court \
-over trial court / tribunal) — binding precedent outranks merely persuasive.
-2. Select the best ones (up to the requested count).
+1. Score each candidate 0-100 by how well it matches the LEGAL AREA and statutes of \
+these facts (NOT whether it answers the exact sub-question):
+   - 75-100: directly on-point — same issue and a similar fact pattern.
+   - 40-74: relevant — same area of law / involves the same statutes or offences as the \
+facts (e.g. a Section 498A, Dowry Prohibition Act, or Domestic Violence Act case for a \
+dowry / domestic-violence matter). This is the normal band for useful precedents.
+   - 20-39: tangential — adjacent area, weak support.
+   - 0-19: NOT relevant — a DIFFERENT legal issue or only a thematic overlap. A famous or \
+binding judgment on a different subject is NOT relevant however important it is (e.g. a \
+triple-talaq, privacy, or basic-structure case is NOT relevant to a dowry / domestic-\
+violence matter). Judge the legal SUBJECT, not the fame or the court.
+   Your relevance_score MUST agree with your relevance_note: never write "does not address \
+the issue" and then give a score above 19.
+   When two judgments are similarly relevant, prefer the higher / binding court.
+2. Select every genuinely relevant candidate (score >= 20), up to the requested count. \
+Exclude only cases about a clearly different legal subject — don't pad with famous off-topic \
+judgments, but DO include on-topic High Court / trial cases even if no Supreme Court case fits.
 3. For each selected judgment, write:
    - relevance_note: ONE sentence on why it matters to THIS matter.
    - holding: 1-2 sentences stating the ratio / what the court held, based only \
@@ -96,8 +107,13 @@ async def _llm_rerank(
             f"    Snippet: {c.snippet[:500] or '(no snippet)'}"
         )
     issues = "\n".join(f"- {x}" for x in parsed.legal_issues) or "(not extracted)"
+    statutes = "\n".join(
+        f"- {s.act}" + (f" (sections {', '.join(s.sections)})" if s.sections else "")
+        for s in parsed.statutes
+    ) or "(none identified)"
     user = (
         f"FACTS:\n{facts}\n\n"
+        f"LEGAL AREA / STATUTES (a candidate on these is relevant):\n{statutes}\n\n"
         f"LEGAL ISSUES:\n{issues}\n\n"
         f"CANDIDATE JUDGMENTS:\n" + "\n\n".join(lines) + "\n\n"
         f"Select up to {max_results} best-matching judgments."
