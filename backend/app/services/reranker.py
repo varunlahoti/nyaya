@@ -49,6 +49,9 @@ CRITICAL RULES:
 - You may ONLY reference candidates from the provided list, by their integer id.
 - NEVER invent a case name, citation, or holding that is not supported by a \
 provided candidate. It is better to return fewer results than to fabricate.
+- Output ONLY the selected relevant judgments — do NOT emit an entry for every \
+candidate. Keep relevance_note and holding to ONE short sentence each (this keeps \
+the response small enough to return complete).
 - Order results best-first."""
 
 SCHEMA: Dict[str, Any] = {
@@ -157,15 +160,20 @@ async def _llm_rerank(
 
 def _fallback_rerank(candidates: List[Candidate], max_results: int) -> List[JudgmentResult]:
     ranked = sorted(candidates, key=lambda c: c.prelim_score, reverse=True)[:max_results]
-    return [
-        _to_result(
+    # RRF prelim scores are tiny absolute numbers (~0.05), so raw *100 shows ugly
+    # single digits. Scale to the top candidate so the fallback shows a sensible
+    # descending band (strongest ~78) when the LLM reranker is unavailable.
+    top = ranked[0].prelim_score if ranked else 0.0
+    out: List[JudgmentResult] = []
+    for i, c in enumerate(ranked):
+        score = int(round(78 * c.prelim_score / top)) if top else 50
+        out.append(_to_result(
             i + 1, c,
-            score=int(min(100, round(c.prelim_score * 100))),
-            note="Matched by keyword/semantic retrieval (LLM ranking unavailable).",
+            score=max(30, min(85, score)),
+            note="Matched by keyword/semantic retrieval (AI ranking unavailable).",
             holding=c.holding or c.snippet[:200],
-        )
-        for i, c in enumerate(ranked)
-    ]
+        ))
+    return out
 
 
 def _to_result(rank: int, c: Candidate, *, score: int, note: str, holding: str) -> JudgmentResult:
