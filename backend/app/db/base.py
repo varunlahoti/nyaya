@@ -7,12 +7,29 @@ internal corpus.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from ..config import settings
 
 _engine = None
 _sessionmaker = None
+
+
+def _or_tsquery(query: str, max_terms: int = 20) -> str:
+    """Sanitise free text into an OR tsquery: 'a b c' -> 'a | b | c'.
+
+    Keeps alphanumeric tokens (incl. section numbers like 498a), drops 1-2 char
+    noise, de-dupes. Sanitised so it is safe to pass to to_tsquery().
+    """
+    seen, terms = set(), []
+    for tok in re.split(r"[^0-9A-Za-z]+", query.lower()):
+        if len(tok) > 2 and tok not in seen:
+            seen.add(tok)
+            terms.append(tok)
+        if len(terms) >= max_terms:
+            break
+    return " | ".join(terms)
 
 
 def _init():
@@ -196,18 +213,28 @@ class VectorStore:
         limit: int,
         court_level: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Postgres full-text ranking — the pgvector backend's BM25 equivalent."""
+        """Postgres full-text ranking — the pgvector backend's BM25 equivalent.
+
+        Uses an OR tsquery (`term1 | term2 | ...`) rather than websearch's implicit
+        AND: a multi-term query like "section 498A dowry cruelty" should still
+        match a case containing most of those terms. `ts_rank` naturally ranks
+        docs matching more/rarer terms higher, so recall goes up without wrecking
+        precision.
+        """
         from sqlalchemy import text
 
+        tsq = _or_tsquery(query)
+        if not tsq:
+            return []
         sql = text(
             """
             SELECT DISTINCT ON (j.id)
                    j.id AS judgment_id, j.title, j.url, j.citation, j.court,
                    j.court_level, j.date::text AS date, j.cites, c.text AS chunk_text,
-                   ts_rank(c.tsv, websearch_to_tsquery('english', :q)) AS score
+                   ts_rank(c.tsv, to_tsquery('english', :tsq)) AS score
             FROM judgment_chunks c
             JOIN judgments j ON j.id = c.judgment_id
-            WHERE c.tsv @@ websearch_to_tsquery('english', :q)
+            WHERE c.tsv @@ to_tsquery('english', :tsq)
               AND (CAST(:court_level AS text) IS NULL OR j.court_level = :court_level)
             ORDER BY j.id, score DESC
             LIMIT :limit
@@ -215,7 +242,7 @@ class VectorStore:
         )
         async with self._sm() as session:
             res = await session.execute(
-                sql, {"q": query, "court_level": court_level, "limit": limit * 4}
+                sql, {"tsq": tsq, "court_level": court_level, "limit": limit * 4}
             )
             rows = [dict(row._mapping) for row in res]
         rows.sort(key=lambda r: r["score"], reverse=True)

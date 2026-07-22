@@ -23,17 +23,30 @@ def build(parsed: ParsedFacts, req: SearchRequest) -> List[RetrievalQuery]:
     dfrom = req.date_from.isoformat() if req.date_from else None
     dto = req.date_to.isoformat() if req.date_to else None
 
-    # 1. One query per legal issue (semantic-first).
-    for issue in parsed.legal_issues[:4]:
+    # 1. Keyword queries FIRST — short, keyword-dense. Indian Kanoon and BM25 are
+    # lexical: they return real on-point cases for "section 498A dowry cruelty"
+    # but famous unrelated landmarks for a 40-word essay question. Keywords also
+    # work well for the vector retriever, so these lead and survive the cap.
+    for kw in parsed.keywords[:4]:
         queries.append(RetrievalQuery(
-            text=issue,
+            text=kw,
+            jurisdiction=jur, court_level=lvl,
+            date_from=dfrom, date_to=dto,
+            limit=settings.PER_RETRIEVER_LIMIT, tag="keyword",
+        ))
+
+    # 2. One query per legal issue — but CONDENSED to salient terms for retrieval
+    # (the full verbose issue text dilutes keyword search).
+    for issue in parsed.legal_issues[:3]:
+        queries.append(RetrievalQuery(
+            text=_condense(issue),
             boolean=_phrase_boolean(issue),
             jurisdiction=jur, court_level=lvl,
             date_from=dfrom, date_to=dto,
             limit=settings.PER_RETRIEVER_LIMIT, tag="issue",
         ))
 
-    # 2. One query per statute/section (boolean, precise).
+    # 3. One query per statute/section (boolean, precise).
     for st in parsed.statutes[:3]:
         act_phrase = f'"{st.act.split(",")[0]}"'
         if st.sections:
@@ -92,6 +105,42 @@ def build(parsed: ParsedFacts, req: SearchRequest) -> List[RetrievalQuery]:
                 limit=settings.PER_RETRIEVER_LIMIT, tag="supreme_court",
             ))
     return capped
+
+
+# Filler words that dilute a keyword search — dropped when condensing a verbose
+# legal issue into a retrieval query.
+_FILLER = {
+    "whether", "the", "a", "an", "of", "under", "can", "be", "is", "are", "and",
+    "or", "to", "in", "on", "for", "with", "as", "by", "from", "same", "based",
+    "specifically", "concurrently", "simultaneously", "constitute", "against",
+    "person", "case", "matter", "any", "such", "these", "this", "that", "which",
+    "commission", "maintained", "initiated", "available", "sought", "conjunction",
+}
+
+
+def _condense(issue: str, max_terms: int = 12) -> str:
+    """Verbose legal issue → short keyword query (drop filler, keep legal terms).
+
+    'Whether the commission of an offence under the Dowry Prohibition Act, 1961,
+    ... can concurrently constitute domestic violence' -> 'offence Dowry
+    Prohibition Act 1961 domestic violence'. Keeps section numbers + Act names.
+    """
+    import re
+
+    out, seen = [], set()
+    for raw in re.split(r"[\s,;.]+", issue):
+        w = raw.strip()
+        if not w:
+            continue
+        key = w.lower()
+        if key in _FILLER or (len(w) <= 2 and not w.isdigit()):
+            continue
+        if key not in seen:
+            seen.add(key)
+            out.append(w)
+        if len(out) >= max_terms:
+            break
+    return " ".join(out) or issue[:80]
 
 
 def _phrase_boolean(issue: str) -> Optional[str]:

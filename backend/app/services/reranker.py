@@ -111,19 +111,32 @@ async def _llm_rerank(
         effort="high",
     )
 
+    from ..config import settings
+
     results: List[JudgmentResult] = []
-    for rank, item in enumerate(data.get("results", [])[:max_results], start=1):
+    for item in data.get("results", []):
         idx = item.get("id")
         if idx is None or not (0 <= idx < len(candidates)):
             continue  # drop any id not in the closed set (anti-hallucination)
+        score = _clamp(item.get("relevance_score", 0))
+        # Drop clearly off-point candidates rather than showing a "score 0, this
+        # case does not address the issue" card. If NOTHING clears the bar the
+        # pipeline surfaces a "no strong match" notice instead of noise.
+        if score < settings.RERANK_MIN_SCORE:
+            continue
         c = candidates[idx]
         results.append(_to_result(
-            rank, c,
-            score=_clamp(item.get("relevance_score", 0)),
+            0, c,
+            score=score,
             note=item.get("relevance_note", ""),
             holding=item.get("holding", ""),
         ))
-    return results
+    # Sort by score (best-first) and assign display ranks.
+    results.sort(key=lambda r: r.relevance_score, reverse=True)
+    out = results[:max_results]
+    for rank, r in enumerate(out, start=1):
+        r.rank = rank
+    return out
 
 
 def _fallback_rerank(candidates: List[Candidate], max_results: int) -> List[JudgmentResult]:
