@@ -44,11 +44,12 @@ class Settings(BaseSettings):
     # --- Indian Kanoon API ---
     INDIAN_KANOON_API_TOKEN: Optional[str] = None
     INDIAN_KANOON_BASE_URL: str = "https://api.indiankanoon.org"
-    # IK returns ~10 hits per search page. To fill PER_RETRIEVER_LIMIT (>10) we
-    # must fetch several pages — each page is a separate /search call (≈1 credit).
-    # This caps how deep we page per query so credit burn stays bounded. 1 =
-    # legacy single-page (~10 hits); 3 = ~30-hit pool per query (recommended).
-    IK_MAX_PAGES: int = 3
+    # IK returns ~10 hits per search page, BEST-FIRST (its top-relevance results
+    # are on page 1). Each extra page is a separate /search call (≈1 credit) for
+    # diminishing-relevance filler, so 1 page is the right cost/quality point:
+    # page 1 holds the landmarks, and we run several keyword queries anyway. Raise
+    # only if recall (not credits) is the bottleneck.
+    IK_MAX_PAGES: int = 1
 
     # --- Retrieval ---
     # Hybrid by default: IK (live keyword) + vector (semantic) + bm25 (lexical)
@@ -73,9 +74,10 @@ class Settings(BaseSettings):
     # candidate set before rerank. For IK this may span multiple pages (see
     # IK_MAX_PAGES) — costs extra credits; local corpus retrievers page free.
     PER_RETRIEVER_LIMIT: int = 25     # results requested per source per query
-    # Cap queries per search. Each query ≈ 1 Indian Kanoon credit, so this is the
-    # direct lever on credit burn. 3 = conserve (free-tier dev); 6 = full breadth.
-    MAX_QUERIES_PER_SEARCH: int = 6
+    # Cap queries per search. With IK_MAX_PAGES=1 each query ≈ 1 IK credit, so this
+    # is the direct lever on burn. 5 keyword-led queries (they lead the builder)
+    # cover the topic well; raising it mostly adds lower-value statute/issue angles.
+    MAX_QUERIES_PER_SEARCH: int = 5
     # Always add one Supreme-Court-priority query so binding authority surfaces
     # (over and above the cap). Costs 1 extra IK query per search.
     SC_PRIORITY_QUERY: bool = True
